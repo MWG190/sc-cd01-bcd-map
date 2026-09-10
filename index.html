@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>SC-01 Live Map · Berkeley, Charleston &amp; Dorchester</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://unpkg.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+  :root{
+    --ink:#102033;
+    --paper:#f6f1e6;
+    --gold:#c4a35a;
+    --gold2:#e0c27a;
+    --cd1a:#1a9b94;
+    --cd6a:#c4a07a;
+    --line:rgba(255,255,255,.12);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:#071018;color:var(--paper);font-family:"Source Sans 3",system-ui,sans-serif}
+  #app{display:grid;grid-template-columns:380px 1fr;height:100%}
+  aside{background:linear-gradient(180deg,#102033 0%,#0a1622 100%);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+  header.brand{padding:22px 22px 14px;border-bottom:1px solid var(--line)}
+  header.brand .kicker{letter-spacing:.18em;text-transform:uppercase;font-size:11px;color:var(--gold);font-weight:700}
+  header.brand h1{font-family:Fraunces,Georgia,serif;font-size:28px;line-height:1.15;margin:6px 0 8px;font-weight:700}
+  header.brand p{margin:0;color:#c9d4de;font-size:13.5px;line-height:1.45}
+  .controls{padding:14px 18px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--line)}
+  .search{position:relative}
+  .search input{width:100%;background:#08141f;border:1px solid #2a3d52;color:var(--paper);border-radius:10px;padding:10px 12px 10px 36px;font:inherit;font-size:14px}
+  .search svg{position:absolute;left:11px;top:11px;opacity:.7}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{border:1px solid #35506a;background:#10283c;color:#e8eef4;border-radius:999px;padding:5px 10px;font-size:12px;cursor:pointer;font-weight:600}
+  .chip.on{background:var(--gold);border-color:var(--gold);color:#1a1408}
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;font-size:13px;color:#d5dee6}
+  .switch{width:40px;height:22px;border-radius:999px;background:#35506a;position:relative;cursor:pointer}
+  .switch i{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.15s}
+  .switch.on{background:var(--cd1a)}
+  .switch.on i{left:20px}
+  .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .stat{background:#0b1c2b;border:1px solid #22384c;border-radius:10px;padding:8px 10px}
+  .stat b{display:block;font-size:18px;font-family:Fraunces,serif;color:var(--gold2)}
+  .stat span{font-size:11px;color:#9fb0c0;letter-spacing:.04em;text-transform:uppercase}
+  #list{overflow:auto;flex:1;padding:8px 10px 20px}
+  .item{border:1px solid transparent;border-radius:10px;padding:8px 10px;cursor:pointer;display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center}
+  .item:hover{background:#132536}
+  .item.sel{background:#163044;border-color:#3d6a86}
+  .dot{width:10px;height:10px;border-radius:50%}
+  .dot.cd1{background:var(--cd1a)}
+  .dot.cd6{background:var(--cd6a)}
+  .item .nm{font-weight:600;font-size:13.5px}
+  .item .meta{font-size:11.5px;color:#9fb0c0}
+  .item .tag{font-size:11px;font-weight:700;color:var(--gold)}
+  #map{height:100%;background:#0a1a24}
+  .leaflet-container{background:#0a1a24;font-family:inherit}
+  .panel{position:absolute;right:16px;top:16px;width:340px;max-height:calc(100% - 32px);overflow:auto;z-index:500;background:rgba(13,27,42,.94);backdrop-filter:blur(10px);border:1px solid #2c4a63;border-radius:16px;padding:16px 16px 18px;box-shadow:0 18px 50px rgba(0,0,0,.35);display:none}
+  .panel h2{font-family:Fraunces,serif;margin:0 0 4px;font-size:22px}
+  .panel .sub{color:#b7d4d3;font-size:13px;margin-bottom:12px}
+  .badge{display:inline-block;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:700;margin-right:6px}
+  .b1{background:#134f4c;color:#b6fff8}
+  .b6{background:#5a3f24;color:#f3d7b0}
+  .office{margin-top:12px;padding-top:10px;border-top:1px solid #2a4156}
+  .office h3{margin:0 0 6px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}
+  .cand{display:flex;justify-content:space-between;gap:8px;font-size:13.5px;padding:3px 0}
+  .party{font-size:11px;font-weight:700;letter-spacing:.06em}
+  .R{color:#f0b4b4}.D{color:#b7d4ff}.L{color:#e7d48a}.O{color:#cfcfcf}
+  .close{position:absolute;right:10px;top:10px;background:transparent;border:0;color:#c9d4de;font-size:20px;cursor:pointer}
+  .legend{position:absolute;left:16px;bottom:24px;z-index:500;background:rgba(13,27,42,.92);border:1px solid #2c4a63;border-radius:12px;padding:10px 12px;font-size:12px}
+  .legend div{display:flex;align-items:center;gap:8px;margin:3px 0}
+  .sw{width:16px;height:10px;border-radius:2px}
+  .note{font-size:11px;color:#8ea0b0;line-height:1.35;margin-top:6px;max-width:220px}
+  @media (max-width:860px){
+    #app{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+    aside{max-height:46vh}
+    .panel{left:12px;right:12px;width:auto;top:auto;bottom:12px;max-height:42vh}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside>
+    <header class="brand">
+      <div class="kicker">November 3, 2026 · General election</div>
+      <h1>CD-01 precinct map</h1>
+      <p>Berkeley, Charleston, and Dorchester only. Click a precinct for the federal, statewide, and House names on that ballot.</p>
+    </header>
+    <div class="controls">
+      <div class="search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c9d4de" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/></svg>
+        <input id="q" placeholder="Search precinct…" autocomplete="off"/>
+      </div>
+      <div class="chips" id="chips"></div>
+      <div class="toggle-row">
+        <span>Show CD-06 precincts in these counties</span>
+        <div class="switch" id="show6"><i></i></div>
+      </div>
+      <div class="stats">
+        <div class="stat"><b id="nAll">0</b><span>Precincts</span></div>
+        <div class="stat"><b id="n1">0</b><span>CD-01</span></div>
+        <div class="stat"><b id="n6">0</b><span>CD-06</span></div>
+      </div>
+    </div>
+    <div id="list"></div>
+  </aside>
+  <div style="position:relative">
+    <div id="map"></div>
+    <div class="panel" id="panel"></div>
+    <div class="legend">
+      <div><span class="sw" style="background:#1a9b94;outline:1px solid #0b3d3a"></span> U.S. House District 1</div>
+      <div><span class="sw" style="background:#c4a07a;outline:1px solid #5a3f24"></span> U.S. House District 6</div>
+      <div class="note">Boundaries: SC RFA precincts via Charleston GIS. Not a certified sample ballot — confirm at scvotes.gov.</div>
+    </div>
+  </div>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="precincts.js"></script>
+<script>
+const HOUSE = {
+  15:[["Heather Bell Hickman","R"],["J.A. Moore","D"]],
+  80:[["Kathy DuBeau Landing","R"],["Benjamin Brown","D"]],
+  90:[["See sample ballot","O"]],
+  92:[["Brandon Cox","R"],["Byron Walters","D"]],
+  94:[["Gil Gatch","R"],["Sally Hebert","D"]],
+  95:[["See sample ballot","R"],["Gilda Cobb-Hunter","D"]],
+  97:[["Robby Robbins","R"],["Cathy A. Jaggars","D"]],
+  98:[["Greg Ford","R"],["Sonja Ogletree Satani","D"]],
+  99:[["Jarrod Brooks","R"],["Samuel Price","D"]],
+  100:[["Sylleste Davis","R"],["Crystal Campbell","D"]],
+  101:[["Arnie Borowsky","R"],["Roger Kirby","D"]],
+  102:[["Harriet Holman","R"],["Montez Aiken","D"]],
+  103:[["No Republican nominee","O"],["Carl Anderson","D"]],
+  108:[["Lee Hewitt","R"],["Kathy Redwine","D"]],
+  109:[["See sample ballot","O"],["Tiffany Spann-Wilder","D"]],
+  110:[["Tom Hartnett","R"],["KJ Atwood","D"]],
+  111:[["See sample ballot","O"],["Wendell Gilliard","D"]],
+  112:[["Joe Bustos","R"],["Jenna Arsenault","D"]],
+  113:[["See sample ballot","O"],["Courtney Waters","D"]],
+  114:[["Gary Brewer","R"],["Kelly Hough","D"]],
+  115:[["Johnnie Garmon","R"],["Nick Uricchio","D"]],
+  116:[["James Teeple","R"],["Clay Middleton","D"]],
+  117:[["Jordan Pace","R"],["Ashley Painter","D"]],
+  119:[["Lee Edwards","R"],["Leon Stavrinakis","D"]]
+};
+const STATEWIDE = [
+  ["Governor / Lt. Governor",[["Alan Wilson / Mike Reichenbach","R"],["Jermaine Johnson","D"]]],
+  ["Attorney General",[["David M. Stumbo","R"],["Richard Hricik","D"]]],
+  ["Secretary of State",[["Mark Hammond","R"],["Jason Belton","D"]]],
+  ["State Treasurer",[["Curtis Loftis Jr.","R"],["Vincent Coe","D"]]],
+  ["Comptroller General",[["Mike Burkhold","R"],["Tiffany Boozer","D"]]],
+  ["Supt. of Education",[["Ellen Weaver","R"],["Sylvia Wright","D"]]],
+  ["Ag. Commissioner",[["Cody Simpson","R"],["DeShawn Blanding","D"]]]
+];
+const SENATE = [["Darline Graham","R"],["Annie Andrews","D"],["Kasie Whitener","L"],["Mark Hackett","Con"]];
+const CD1 = [["Jenny Costa Honeycutt","R"],["Nancy Lacore","D"],["Bill Reeside","L"]];
+const CD6 = [["John Peterson","R"],["Jim Clyburn","D"]];
+const LOCAL = {
+  Berkeley: [
+    ["County Supervisor",[["Johnny Cribb","R"]]],
+    ["Sheriff",[["Duane Lewis","R"]]],
+    ["Clerk of Court",[["Leah Guerry Dupree","R"]]],
+    ["Coroner",[["Darnell Hartwell","R"]]],
+    ["Probate Judge",[["Tiffany Provence","R"]]],
+    ["Register of Deeds",[["Cindy Forte","R"]]]
+  ],
+  Charleston: [
+    ["Probate Judge",[["Irv Condon","R"],["Tamara Cunningham Curry","D"]]],
+    ["Register of Deeds",[["Karen Lesser Hollings","D"]]]
+  ],
+  Dorchester: [
+    ["County Council (if your district is on the ballot)",[["D2 Joe Debney (R) vs Bryan Holman (D)","O"],["D3 Rita May Oliphant Ranck (R) vs Jessica Bright (D)","O"],["D7 Jennifer Kunda (R) vs Preston Smelt (D)","O"]]]
+  ]
+};
+const feats = (window.PRECINCTS && PRECINCTS.features) || [];
+let countyFilter = "All";
+let show6 = false;
+let selected = null;
+let layer;
+const map = L.map("map", {zoomControl:true, minZoom:8}).setView([33.0, -80.05], 10);
+L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+  attribution: "&copy; OSM &copy; CARTO · precincts SC RFA",
+  subdomains:"abcd", maxZoom:19
+}).addTo(map);
+function styleFeat(f){
+  const cd = f.properties.cd;
+  const sel = selected && selected.properties.precinct===f.properties.precinct && selected.properties.county===f.properties.county;
+  if(cd==="1") return {color: sel?"#fff":"#0b3d3a", weight: sel?2.4:0.7, fillColor:"#1a9b94", fillOpacity: sel?0.72:0.48};
+  return {color: sel?"#fff":"#5a3f24", weight: sel?2.4:0.6, fillColor:"#c4a07a", fillOpacity: sel?0.55:0.28};
+}
+function visible(){
+  const q = document.getElementById("q").value.trim().toLowerCase();
+  return feats.filter(f=>{
+    const p=f.properties;
+    if(countyFilter!=="All" && p.county!==countyFilter) return false;
+    if(!show6 && p.cd!=="1") return false;
+    if(q && !(p.precinct||"").toLowerCase().includes(q) && String(p.house||"").indexOf(q)<0) return false;
+    return true;
+  });
+}
+function candRows(list){
+  return list.map(([n,p])=>`<div class="cand"><span>${n}</span><span class="party ${p}">${p}</span></div>`).join("");
+}
+function openPanel(f){
+  selected=f;
+  const p=f.properties;
+  const houseCands = HOUSE[p.house] || [["See sample ballot","O"]];
+  const us = p.cd==="1"?CD1:CD6;
+  const loc = LOCAL[p.county]||[];
+  document.getElementById("panel").style.display="block";
+  document.getElementById("panel").innerHTML = `
+    <button class="close" id="x">×</button>
+    <span class="badge ${p.cd==="1"?"b1":"b6"}">U.S. House CD-${p.cd}</span>
+    <span class="badge b1">SC House ${p.house||"—"}</span>
+    <h2>${p.precinct}</h2>
+    <div class="sub">${p.county} County · precinct ${p.pcode||""}</div>
+    <div class="office"><h3>U.S. Senate</h3>${candRows(SENATE)}</div>
+    <div class="office"><h3>U.S. House, District ${p.cd}</h3>${candRows(us)}</div>
+    ${STATEWIDE.map(([o,cs])=>`<div class="office"><h3>${o}</h3>${candRows(cs)}</div>`).join("")}
+    <div class="office"><h3>SC House District ${p.house||""}</h3>${candRows(houseCands)}</div>
+    ${loc.map(([o,cs])=>`<div class="office"><h3>${o}</h3>${candRows(cs)}</div>`).join("")}
+    <div class="office"><h3>Note</h3><div class="sub">County council and school-board seats are districted. Confirm the exact local line on scvotes.gov. SC Senate is not on the 2026 ballot.</div></div>
+  `;
+  document.getElementById("x").onclick=()=>{selected=null; document.getElementById("panel").style.display="none"; redraw();};
+  if(layer){
+    layer.eachLayer(l=>{
+      if(l.feature && l.feature.properties.precinct===p.precinct && l.feature.properties.county===p.county){
+        map.fitBounds(l.getBounds(), {padding:[40,40], maxZoom:13});
+      }
+    });
+  }
+  redraw();
+}
+function redraw(){
+  const vis=visible();
+  document.getElementById("nAll").textContent=vis.length;
+  document.getElementById("n1").textContent=vis.filter(f=>f.properties.cd==="1").length;
+  document.getElementById("n6").textContent=vis.filter(f=>f.properties.cd==="6").length;
+  if(layer) map.removeLayer(layer);
+  layer=L.geoJSON({type:"FeatureCollection",features:vis},{
+    style:styleFeat,
+    onEachFeature:(f,l)=>{
+      l.on("click",()=>openPanel(f));
+      l.bindTooltip(`${f.properties.precinct} · CD-${f.properties.cd} · HD ${f.properties.house||"—"}`,{sticky:true,opacity:.92});
+    }
+  }).addTo(map);
+  const list=document.getElementById("list");
+  const sorted=[...vis].sort((a,b)=> (a.properties.county+a.properties.precinct).localeCompare(b.properties.county+b.properties.precinct));
+  list.innerHTML=sorted.map(f=>{
+    const p=f.properties;
+    const sel=selected && selected.properties.precinct===p.precinct && selected.properties.county===p.county;
+    return `<div class="item ${sel?"sel":""}" data-c="${p.county}" data-p="${p.precinct}">
+      <span class="dot ${p.cd==="1"?"cd1":"cd6"}"></span>
+      <div><div class="nm">${p.precinct}</div><div class="meta">${p.county} · HD ${p.house||"—"}</div></div>
+      <div class="tag">CD-${p.cd}</div>
+    </div>`;
+  }).join("");
+  list.querySelectorAll(".item").forEach(el=>{
+    el.onclick=()=>{
+      const f=feats.find(x=>x.properties.county===el.dataset.c && x.properties.precinct===el.dataset.p);
+      if(f) openPanel(f);
+    };
+  });
+}
+const counties=["All","Berkeley","Charleston","Dorchester"];
+const chips=document.getElementById("chips");
+counties.forEach(c=>{
+  const b=document.createElement("button");
+  b.className="chip"+(c==="All"?" on":"");
+  b.textContent=c;
+  b.onclick=()=>{
+    countyFilter=c;
+    [...chips.children].forEach(x=>x.classList.toggle("on",x.textContent===c));
+    redraw();
+  };
+  chips.appendChild(b);
+});
+document.getElementById("show6").onclick=function(){
+  show6=!show6; this.classList.toggle("on", show6); redraw();
+};
+document.getElementById("q").addEventListener("input", redraw);
+redraw();
+if(layer) map.fitBounds(layer.getBounds(), {padding:[20,20]});
+</script>
+</body>
+</html>
